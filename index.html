@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spike Ball Battle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: rgba(30, 41, 59, 0.9);
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --text-main: #ffffff;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            color: var(--text-main);
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background: transparent;
+            border-radius: 12px;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .player-card {
+            background: var(--bg-panel);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: white;
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .hearts {
+            color: #e94560;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+        }
+
+        .spiked-status {
+            color: #fcd34d;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .spiked-status.active {
+            opacity: 1;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                text-shadow: 0 0 5px #fcd34d;
+            }
+
+            to {
+                text-shadow: 0 0 20px #fcd34d;
+            }
+        }
+
+        #gameOverScreen,
+        #arenaScreen,
+        #playerScreen,
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            /* Use theme color */
+            opacity: 0.98;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Form Styles */
+        .menu-box {
+            background: var(--bg-panel);
+            padding: 2rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            pointer-events: auto;
+            min-width: 350px;
+            max-width: 90%;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            color: #cbd5e1;
+            margin-bottom: 0.4rem;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: bold;
+        }
+
+        select,
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        select:focus,
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        /* Custom Buttons */
+        .theme-btn {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--accent);
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .theme-btn:hover {
+            background-color: var(--accent-hover);
+            transform: scale(1.02);
+        }
+
+        .theme-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Player Setup Grid */
+        .player-setup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .player-col {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .p1-title {
+            color: #3b82f6;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .p2-title {
+            color: #ef4444;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* Title Style */
+        .game-title {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 2rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px var(--accent);
+            color: white;
+            backdrop-filter: blur(2px);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 8px solid rgba(255, 255, 255, 0.3);
+            border-top: 8px solid var(--accent);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .input-status {
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+            height: 1.2rem;
+            font-weight: bold;
+        }
+
+        .status-ok {
+            color: #22c55e;
+        }
+
+        .status-error {
+            color: #ef4444;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="gameContainer">
+        <canvas id="arena"></canvas>
+
+        <div class="ui-overlay">
+            <!-- HUD -->
+            <div class="flex justify-between w-full">
+                <div class="player-card" id="p1Card">
+                    <h2 id="p1NameDisplay" class="text-xl font-bold text-blue-400">Player 1</h2>
+                    <div class="hearts" id="p1Hearts">❤❤❤❤❤</div>
+                    <div class="spiked-status" id="p1Status">⚠️ SPIKED ⚠️</div>
+                </div>
+
+                <div class="player-card text-right" id="p2Card">
+                    <h2 id="p2NameDisplay" class="text-xl font-bold text-red-400">Player 2</h2>
+                    <div class="hearts" id="p2Hearts">❤❤❤❤❤</div>
+                    <div class="spiked-status" id="p2Status">⚠️ SPIKED ⚠️</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 1: Arena Settings -->
+        <div id="arenaScreen">
+            <div class="menu-box">
+                <h1 class="game-title">SPIKE ARENA</h1>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="arenaShape">Arena Shape</label>
+                        <select id="arenaShape">
+                            <option value="circle">Ring</option>
+                            <option value="square">Box</option>
+                            <option value="triangle">Triangle</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="arenaSize">Arena Size</label>
+                        <select id="arenaSize">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ballSpeed">Ball Speed</label>
+                        <select id="ballSpeed">
+                            <option value="5">Slow</option>
+                            <option value="7" selected>Normal</option>
+                            <option value="10">Fast</option>
+                            <option value="14">Extreme</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ballSize">Ball Size</label>
+                        <select id="ballSize">
+                            <option value="15">Tiny</option>
+                            <option value="25" selected>Normal</option>
+                            <option value="40">Large</option>
+                            <option value="60">Giant</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="goToPlayerSetup()" class="theme-btn mt-4">
+                    NEXT: CUSTOMIZE
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Player Customization -->
+        <div id="playerScreen" class="hidden">
+            <div class="menu-box" style="min-width: 500px;">
+                <h1 class="text-2xl font-bold text-white mb-6">PLAYER SETUP</h1>
+
+                <div class="player-setup-grid">
+                    <!-- Player 1 -->
+                    <div class="player-col" style="border: 1px solid #3b82f6;">
+                        <div class="p1-title">PLAYER 1</div>
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="p1NameInput" value="CYBER ORB" maxlength="12">
+                        </div>
+                        <div class="form-group">
+                            <label>Image URL</label>
+                            <input type="text" id="p1ImgInput" placeholder="https://...">
+                            <div id="p1ImgStatus" class="input-status"></div>
+                        </div>
+                    </div>
+
+                    <!-- Player 2 -->
+                    <div class="player-col" style="border: 1px solid #ef4444;">
+                        <div class="p2-title">PLAYER 2</div>
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="p2NameInput" value="CRIMSON SPHERE" maxlength="12">
+                        </div>
+                        <div class="form-group">
+                            <label>Image URL</label>
+                            <input type="text" id="p2ImgInput" placeholder="https://...">
+                            <div id="p2ImgStatus" class="input-status"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="backToArena()" class="theme-btn" style="background-color: #475569;">
+                        BACK
+                    </button>
+                    <button onclick="prepareAndStartGame()" class="theme-btn"
+                        style="background-color: #22c55e; flex: 2;">
+                        START BATTLE
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 3: Loading Screen (New) -->
+        <div id="loadingScreen" class="hidden">
+            <div class="spinner"></div>
+            <h1 class="text-3xl font-bold text-white mb-2">LOADING ASSETS...</h1>
+            <p class="text-gray-300">Preparing the arena and player images.</p>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameOverScreen" class="hidden">
+            <h1 class="text-6xl font-bold text-white mb-4" id="winnerText">WINNER</h1>
+            <button onclick="resetGame()" class="theme-btn" style="max-width: 200px; pointer-events: auto;">
+                MAIN MENU
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // THEME SYSTEM
+        // ==========================================
+        const THEMES = [
+            { name: 'Cyber Blue', bg: '#0f172a', panel: 'rgba(30, 41, 59, 0.9)', accent: '#3b82f6', accentHover: '#2563eb' },
+            { name: 'Toxic Green', bg: '#052e16', panel: 'rgba(20, 83, 45, 0.9)', accent: '#22c55e', accentHover: '#16a34a' },
+            { name: 'Void Purple', bg: '#2e1065', panel: 'rgba(88, 28, 135, 0.9)', accent: '#a855f7', accentHover: '#9333ea' },
+            { name: 'Sunset Orange', bg: '#431407', panel: 'rgba(124, 45, 18, 0.9)', accent: '#f97316', accentHover: '#ea580c' },
+            { name: 'Crimson Red', bg: '#450a0a', panel: 'rgba(127, 29, 29, 0.9)', accent: '#ef4444', accentHover: '#dc2626' }
+        ];
+
+        let currentTheme = {};
+
+        function applyRandomTheme() {
+            const t = THEMES[Math.floor(Math.random() * THEMES.length)];
+            currentTheme = t;
+            const root = document.documentElement;
+            root.style.setProperty('--bg-dark', t.bg);
+            root.style.setProperty('--bg-panel', t.panel);
+            root.style.setProperty('--accent', t.accent);
+            root.style.setProperty('--accent-hover', t.accentHover);
+            document.getElementById('p1Card').style.borderColor = t.accent;
+            document.getElementById('p2Card').style.borderColor = t.accent;
+            console.log("Applied Theme:", t.name);
+        }
+
+        // Apply immediately on load
+        applyRandomTheme();
+
+        // ==========================================
+        // CONFIG & CONSTANTS
+        // ==========================================
+
+        let CONFIG = {
+            player1: { name: "CYBER ORB", color: "#3b82f6", imageSrc: null, img: null },
+            player2: { name: "CRIMSON SPHERE", color: "#ef4444", imageSrc: null, img: null },
+            ballSize: 25,
+            ballSpeed: 7,
+            currentShape: 'square',
+            currentSizeMultiplier: 0.8,
+            baseResolution: 800 // Reference resolution for scaling
+        };
+
+        // ==========================================
+        // SOUND SYSTEM
+        // ==========================================
+
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTone(freq, type, duration, vol = 0.1) {
+                if (!this.enabled || !this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playWallBounce() {
+                // High pitched ping
+                this.playTone(800 + Math.random() * 200, 'sine', 0.1, 0.1);
+            }
+
+            playPlayerBounce() {
+                // Lower thud
+                this.playTone(200, 'triangle', 0.15, 0.2);
+            }
+
+            playSpikeHit() {
+                // Distorted noise-like effect using sawtooth
+                if (!this.enabled || !this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                // Slide pitch down
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+        }
+
+        const audio = new SoundManager();
+
+        // ==========================================
+        // SETUP
+        // ==========================================
+
+        const canvas = document.getElementById('arena');
+        const ctx = canvas.getContext('2d');
+        const arenaScreen = document.getElementById('arenaScreen');
+        const playerScreen = document.getElementById('playerScreen');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winnerText = document.getElementById('winnerText');
+
+        // DOM Elements for inputs
+        const p1NameInput = document.getElementById('p1NameInput');
+        const p1ImgInput = document.getElementById('p1ImgInput');
+        const p2NameInput = document.getElementById('p2NameInput');
+        const p2ImgInput = document.getElementById('p2ImgInput');
+
+        let width, height;
+        let cx, cy;
+        let gameRunning = false;
+        let frameCount = 0;
+        let arenaBound = {};
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            cx = width / 2;
+            cy = height / 2;
+            canvas.width = width;
+            canvas.height = height;
+
+            // Calculate scale factor based on smallest dimension vs base resolution
+            const minDim = Math.min(width, height);
+            const scaleFactor = minDim / CONFIG.baseResolution;
+
+            if (gameRunning) {
+                setupArenaGeometry();
+
+                // Update ball sizes
+                balls.forEach(b => {
+                    b.r = CONFIG.ballSize * scaleFactor;
+                });
+
+                // Update item sizes
+                items.forEach(i => {
+                    i.r = 15 * scaleFactor;
+                });
+
+                // Respawn items to ensure they are inside the new arena bounds
+                items.forEach(item => item.spawn());
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // ==========================================
+        // NAVIGATION & FLOW
+        // ==========================================
+
+        function validateImageInput(input, statusId) {
+            const statusEl = document.getElementById(statusId);
+            const url = input.value.trim();
+
+            if (!url) {
+                statusEl.innerText = "";
+                statusEl.className = "input-status";
+                return;
+            }
+
+            // Basic URL check
+            try {
+                new URL(url);
+            } catch (_) {
+                statusEl.innerText = "Invalid URL";
+                statusEl.className = "input-status status-error";
+                return;
+            }
+
+            // Test load image
+            const img = new Image();
+            img.crossOrigin = 'anonymous'; // IMPORTANT: Match game loading behavior
+            img.onload = () => {
+                statusEl.innerText = "Image is okay";
+                statusEl.className = "input-status status-ok";
+            };
+            img.onerror = () => {
+                statusEl.innerText = "Cannot load image (CORS or Invalid)";
+                statusEl.className = "input-status status-error";
+            };
+            img.src = url;
+        }
+
+        p1ImgInput.addEventListener('input', () => validateImageInput(p1ImgInput, 'p1ImgStatus'));
+        p2ImgInput.addEventListener('input', () => validateImageInput(p2ImgInput, 'p2ImgStatus'));
+
+        function goToPlayerSetup() {
+            arenaScreen.classList.add('hidden');
+            playerScreen.classList.remove('hidden');
+        }
+
+        function backToArena() {
+            playerScreen.classList.add('hidden');
+            arenaScreen.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            location.reload(); // Easy way to get new random theme and reset state
+        }
+
+        /**
+         * Main function to read config, show loading, and start asset loading.
+         */
+        async function prepareAndStartGame() {
+            // 1. Read Configs
+            const shapeSelect = document.getElementById('arenaShape');
+            const sizeSelect = document.getElementById('arenaSize');
+            const speedSelect = document.getElementById('ballSpeed');
+            const ballSizeSelect = document.getElementById('ballSize');
+
+            CONFIG.currentShape = shapeSelect.value;
+            const sizes = { small: 0.5, medium: 0.75, large: 0.9 };
+            CONFIG.currentSizeMultiplier = sizes[sizeSelect.value];
+            CONFIG.ballSpeed = parseInt(speedSelect.value);
+            CONFIG.ballSize = parseInt(ballSizeSelect.value);
+
+            CONFIG.player1.name = p1NameInput.value || "PLAYER 1";
+            CONFIG.player1.imageSrc = p1ImgInput.value.trim() || null;
+
+            CONFIG.player2.name = p2NameInput.value || "PLAYER 2";
+            CONFIG.player2.imageSrc = p2ImgInput.value.trim() || null;
+
+            // 2. UI Transition to Loading
+            playerScreen.classList.add('hidden');
+            loadingScreen.classList.remove('hidden');
+
+            // 3. Load Assets and wait
+            await loadAssets();
+
+            // 4. Start Game
+            audio.init();
+            startGame();
+        }
+
+        /**
+         * Loads player images asynchronously with a timeout.
+         */
+        function loadAssets() {
+            const p1Promise = loadSingleImage(CONFIG.player1.imageSrc, CONFIG.player1);
+            const p2Promise = loadSingleImage(CONFIG.player2.imageSrc, CONFIG.player2);
+
+            // Wait for both images to finish loading (or fail)
+            return Promise.all([p1Promise, p2Promise]);
+        }
+
+        /**
+         * Loads a single image with a timeout fallback.
+         */
+        function loadSingleImage(url, playerConfig) {
+            if (!url) {
+                playerConfig.img = null; // Use fallback
+                return Promise.resolve();
+            }
+
+            return new Promise(resolve => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                const timeout = setTimeout(() => {
+                    console.warn(`Image load timed out for ${playerConfig.name}. Using fallback.`);
+                    playerConfig.img = null;
+                    resolve();
+                }, 5000); // 5 second timeout
+
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    playerConfig.img = img;
+                    resolve();
+                };
+
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    console.error(`Error loading image for ${playerConfig.name}. Using fallback.`);
+                    playerConfig.img = null;
+                    resolve();
+                };
+
+                img.src = url;
+            });
+        }
+
+        /**
+         * Called after assets are ready to initialize and run the game.
+         */
+        function startGame() {
+            document.getElementById('p1NameDisplay').innerText = CONFIG.player1.name;
+            document.getElementById('p2NameDisplay').innerText = CONFIG.player2.name;
+
+            // Setup Game
+            setupArenaGeometry();
+
+            // Pass the pre-loaded image objects to the Ball constructor
+            balls = [
+                new Ball(1, CONFIG.player1),
+                new Ball(2, CONFIG.player2)
+            ];
+            items = [];
+            frameCount = 0;
+
+            // UI Transition
+            loadingScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameRunning = true;
+            loop();
+        }
+
+
+        // ==========================================
+        // GEOMETRY & MATH helpers
+        // ==========================================
+
+        function setupArenaGeometry() {
+            const minDim = Math.min(width, height);
+            const sizeScale = CONFIG.currentSizeMultiplier;
+
+            if (CONFIG.currentShape === 'square') {
+                const w = width * sizeScale;
+                const h = height * sizeScale;
+                arenaBound = {
+                    left: (width - w) / 2,
+                    right: (width + w) / 2,
+                    top: (height - h) / 2,
+                    bottom: (height + h) / 2,
+                    width: w, height: h
+                };
+            }
+            else if (CONFIG.currentShape === 'circle') {
+                arenaBound = {
+                    r: (minDim / 2) * sizeScale
+                };
+            }
+            else if (CONFIG.currentShape === 'triangle') {
+                const r = (minDim / 2) * sizeScale * 1.1;
+                const angleA = -Math.PI / 2;
+                const angleB = angleA + (Math.PI * 2) / 3;
+                const angleC = angleB + (Math.PI * 2) / 3;
+
+                arenaBound = {
+                    p1: { x: cx + r * Math.cos(angleA), y: cy + r * Math.sin(angleA) },
+                    p2: { x: cx + r * Math.cos(angleB), y: cy + r * Math.sin(angleB) },
+                    p3: { x: cx + r * Math.cos(angleC), y: cy + r * Math.sin(angleC) }
+                };
+
+                arenaBound.walls = [
+                    getLineDef(arenaBound.p1, arenaBound.p2),
+                    getLineDef(arenaBound.p2, arenaBound.p3),
+                    getLineDef(arenaBound.p3, arenaBound.p1)
+                ];
+            }
+        }
+
+        function getLineDef(pA, pB) {
+            const dx = pB.x - pA.x;
+            const dy = pB.y - pA.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            let nx = -dy / len;
+            let ny = dx / len;
+
+            const midX = (pA.x + pB.x) / 2;
+            const midY = (pA.y + pB.y) / 2;
+            const toCenterX = cx - midX;
+            const toCenterY = cy - midY;
+
+            if (nx * toCenterX + ny * toCenterY < 0) {
+                nx = -nx;
+                ny = -ny;
+            }
+            const dist = pA.x * nx + pA.y * ny;
+            return { nx, ny, dist };
+        }
+
+        function isPointInArena(x, y, padding) {
+            if (CONFIG.currentShape === 'square') {
+                return x > arenaBound.left + padding &&
+                    x < arenaBound.right - padding &&
+                    y > arenaBound.top + padding &&
+                    y < arenaBound.bottom - padding;
+            }
+            if (CONFIG.currentShape === 'circle') {
+                const d = Math.hypot(x - cx, y - cy);
+                return d < arenaBound.r - padding;
+            }
+            if (CONFIG.currentShape === 'triangle') {
+                for (let wall of arenaBound.walls) {
+                    const distToWall = (x * wall.nx + y * wall.ny) - wall.dist;
+                    if (distToWall < padding) return false;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        // ==========================================
+        // GAME OBJECTS
+        // ==========================================
+
+        class Ball {
+            constructor(id, config) {
+                this.id = id;
+                this.name = config.name;
+                this.color = config.color;
+
+                // Image is now passed pre-loaded or null
+                this.img = config.img;
+                this.hasImage = !!this.img;
+
+                // Initial scale calculation
+                const minDim = Math.min(width, height);
+                const scaleFactor = minDim / CONFIG.baseResolution;
+                this.r = CONFIG.ballSize * scaleFactor;
+
+                this.hp = 5;
+                this.isSpiked = false;
+                this.invulnerable = 0;
+
+                this.spawn();
+
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * CONFIG.ballSpeed;
+                this.vy = Math.sin(angle) * CONFIG.ballSpeed;
+            }
+
+            spawn() {
+                let safe = false;
+                while (!safe) {
+                    const rx = (Math.random() - 0.5) * Math.min(width, height) * 0.5;
+                    const ry = (Math.random() - 0.5) * Math.min(width, height) * 0.5;
+                    this.x = cx + rx;
+                    this.y = cy + ry;
+                    if (isPointInArena(this.x, this.y, this.r * 2)) safe = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Spike Effect
+                if (this.isSpiked) {
+                    ctx.beginPath();
+                    const spikeCount = 12;
+                    for (let i = 0; i < spikeCount; i++) {
+                        const angle = (Math.PI * 2 / spikeCount) * i + (frameCount * 0.1);
+                        const sx = Math.cos(angle) * (this.r + 12);
+                        const sy = Math.sin(angle) * (this.r + 12);
+                        if (i === 0) ctx.moveTo(sx, sy);
+                        else ctx.lineTo(sx, sy);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = '#fcd34d';
+                    ctx.fill();
+                }
+
+                let drawFallback = true;
+
+                if (this.hasImage) {
+                    drawFallback = false;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                    ctx.clip();
+                    ctx.drawImage(this.img, -this.r, -this.r, this.r * 2, this.r * 2);
+                }
+
+                if (drawFallback) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                    ctx.font = `bold ${this.r}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.name.charAt(0).toUpperCase(), 0, 2);
+                }
+
+                // Invulnerability flash
+                if (this.invulnerable > 0) {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = `rgba(255, 255, 255, ${Math.sin(frameCount * 0.5) * 0.5 + 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                    ctx.fill();
+                    this.invulnerable--;
+                }
+                ctx.restore();
+            }
+
+            update() {
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed !== 0) {
+                    // Keep speed constant based on CONFIG.ballSpeed
+                    this.vx = (this.vx / speed) * CONFIG.ballSpeed;
+                    this.vy = (this.vy / speed) * CONFIG.ballSpeed;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.checkWallCollision();
+            }
+
+            checkWallCollision() {
+                if (CONFIG.currentShape === 'square') {
+                    if (this.x - this.r < arenaBound.left) { this.x = arenaBound.left + this.r; this.vx *= -1; audio.playWallBounce(); }
+                    if (this.x + this.r > arenaBound.right) { this.x = arenaBound.right - this.r; this.vx *= -1; audio.playWallBounce(); }
+                    if (this.y - this.r < arenaBound.top) { this.y = arenaBound.top + this.r; this.vy *= -1; audio.playWallBounce(); }
+                    if (this.y + this.r > arenaBound.bottom) { this.y = arenaBound.bottom - this.r; this.vy *= -1; audio.playWallBounce(); }
+                }
+                else if (CONFIG.currentShape === 'circle') {
+                    const dist = Math.hypot(this.x - cx, this.y - cy);
+                    if (dist + this.r > arenaBound.r) {
+                        const nx = (this.x - cx) / dist;
+                        const ny = (this.y - cy) / dist;
+                        const overlap = (dist + this.r) - arenaBound.r;
+                        this.x -= nx * overlap;
+                        this.y -= ny * overlap;
+                        const dot = this.vx * nx + this.vy * ny;
+                        this.vx = this.vx - 2 * dot * nx;
+                        this.vy = this.vy - 2 * dot * ny;
+                        audio.playWallBounce();
+                    }
+                }
+                else if (CONFIG.currentShape === 'triangle') {
+                    for (let wall of arenaBound.walls) {
+                        const distToWall = (this.x * wall.nx + this.y * wall.ny) - wall.dist;
+                        if (distToWall < this.r) {
+                            const overlap = this.r - distToWall;
+                            this.x += wall.nx * overlap;
+                            this.y += wall.ny * overlap;
+                            const dot = this.vx * wall.nx + this.vy * wall.ny;
+                            if (dot < 0) {
+                                this.vx = this.vx - 2 * dot * wall.nx;
+                                this.vy = this.vy - 2 * dot * wall.ny;
+                                audio.playWallBounce();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        class Item {
+            constructor(type) {
+                this.type = type;
+
+                const minDim = Math.min(width, height);
+                const scaleFactor = minDim / CONFIG.baseResolution;
+                this.r = 15 * scaleFactor;
+
+                this.spawn();
+                this.spawnTime = frameCount;
+            }
+
+            spawn() {
+                let safe = false;
+                while (!safe) {
+                    const rx = (Math.random() - 0.5) * Math.min(width, height) * CONFIG.currentSizeMultiplier;
+                    const ry = (Math.random() - 0.5) * Math.min(width, height) * CONFIG.currentSizeMultiplier;
+                    this.x = cx + rx;
+                    this.y = cy + ry;
+                    if (isPointInArena(this.x, this.y, 30)) safe = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                const bob = Math.sin(frameCount * 0.1) * 5;
+                ctx.translate(0, bob);
+
+                if (this.type === 'spike') {
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.beginPath();
+                    // Scale drawing commands
+                    const s = this.r / 15; // 15 is base radius
+                    ctx.moveTo(0, -15 * s);
+                    ctx.lineTo(10 * s, 10 * s);
+                    ctx.lineTo(-10 * s, 10 * s);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle = '#FFF';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = '#f43f5e';
+                    const size = this.r; // Use current radius
+                    ctx.beginPath();
+                    ctx.moveTo(0, size / 4);
+                    ctx.bezierCurveTo(0, size / 4, -size / 2, -size / 2, -size, size / 4);
+                    ctx.bezierCurveTo(-size, size, 0, size * 1.5, 0, size * 1.5);
+                    ctx.bezierCurveTo(0, size * 1.5, size, size, size, size / 4);
+                    ctx.bezierCurveTo(size, -size / 2, 0, -size / 2, 0, size / 4);
+                    ctx.fill();
+                    ctx.shadowColor = '#f43f5e';
+                    ctx.shadowBlur = 10;
+                }
+                ctx.restore();
+            }
+        }
+
+        let balls = [];
+        let items = [];
+
+        // ==========================================
+        // MAIN GAME LOOP FUNCTIONS
+        // ==========================================
+
+        function spawnLogic() {
+            const spikeOnGround = items.some(i => i.type === 'spike');
+            // Spike spawn rate is now 360 frames (6 seconds)
+            if (!spikeOnGround && frameCount % 360 === 0) {
+                if (items.length < 3) items.push(new Item('spike'));
+            }
+            if (frameCount % 60 === 0 && balls.length > 1) {
+                const p1Low = balls[0].hp <= 2;
+                const p2Low = balls[1].hp <= 2;
+                const chance = (p1Low || p2Low) ? 0.1 : 0.02;
+                if (Math.random() < chance) {
+                    if (items.length >= 3) items.shift();
+                    items.push(new Item('heart'));
+                }
+            }
+        }
+
+        function checkCollisions() {
+            if (balls.length < 2) return;
+            const b1 = balls[0];
+            const b2 = balls[1];
+
+            const dx = b1.x - b2.x;
+            const dy = b1.y - b2.y;
+            const distSq = dx * dx + dy * dy;
+            const minDist = b1.r + b2.r;
+
+            if (distSq < minDist * minDist) {
+                const dist = Math.sqrt(distSq);
+                const nx = dx / dist;
+                const ny = dy / dist;
+
+                const v1n = b1.vx * nx + b1.vy * ny;
+                const v2n = b2.vx * nx + b2.vy * ny;
+                const velAlongNormal = v1n - v2n;
+
+                if (velAlongNormal > 0) return;
+
+                const tx = -ny;
+                const ty = nx;
+                const v1t = b1.vx * tx + b1.vy * ty;
+                const v2t = b2.vx * tx + b2.vy * ty;
+
+                const v1nFinal = v2n;
+                const v2nFinal = v1n;
+
+                b1.vx = v1nFinal * nx + v1t * tx;
+                b1.vy = v1nFinal * ny + v1t * ty;
+                b2.vx = v2nFinal * nx + v2t * tx;
+                b2.vy = v2nFinal * ny + v2t * ty;
+
+                const overlap = minDist - dist + 1;
+                b1.x += nx * overlap * 0.5;
+                b1.y += ny * overlap * 0.5;
+                b2.x -= nx * overlap * 0.5;
+                b2.y -= ny * overlap * 0.5;
+
+                audio.playPlayerBounce();
+
+                if (b1.invulnerable === 0 && b2.invulnerable === 0) {
+                    if (b1.isSpiked && !b2.isSpiked) {
+                        b2.hp--; b2.invulnerable = 60; b1.isSpiked = false; audio.playSpikeHit();
+                    } else if (b2.isSpiked && !b1.isSpiked) {
+                        b1.hp--; b1.invulnerable = 60; b2.isSpiked = false; audio.playSpikeHit();
+                    }
+                }
+            }
+
+            balls.forEach(ball => {
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    const dist = Math.hypot(ball.x - item.x, ball.y - item.y);
+                    if (dist < ball.r + item.r) {
+                        if (item.type === 'spike') {
+                            balls.forEach(b => b.isSpiked = false);
+                            ball.isSpiked = true;
+                        } else {
+                            if (ball.hp < 5) ball.hp++;
+                        }
+                        items.splice(i, 1);
+                    }
+                }
+            });
+        }
+
+        function drawArena() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Common style for all shapes
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.strokeStyle = currentTheme.accent || '#3b82f6';
+            ctx.lineWidth = 4;
+
+            // Setup dashed line animation
+            ctx.setLineDash([20, 20]); // Dash pattern: 20px line, 20px gap
+            ctx.lineDashOffset = -frameCount * 2; // Animate the offset
+
+            if (CONFIG.currentShape === 'square') {
+                ctx.fillRect(arenaBound.left, arenaBound.top, arenaBound.width, arenaBound.height);
+                ctx.strokeRect(arenaBound.left, arenaBound.top, arenaBound.width, arenaBound.height);
+            }
+            else if (CONFIG.currentShape === 'circle') {
+                ctx.beginPath();
+                ctx.arc(cx, cy, arenaBound.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            else if (CONFIG.currentShape === 'triangle') {
+                ctx.beginPath();
+                ctx.moveTo(arenaBound.p1.x, arenaBound.p1.y);
+                ctx.lineTo(arenaBound.p2.x, arenaBound.p2.y);
+                ctx.lineTo(arenaBound.p3.x, arenaBound.p3.y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // Reset line dash so other elements aren't affected
+            ctx.setLineDash([]);
+        }
+
+        function updateUI() {
+            if (balls.length < 2) return;
+            document.getElementById('p1Hearts').innerText = "❤".repeat(balls[0].hp) + "♡".repeat(5 - balls[0].hp);
+            document.getElementById('p2Hearts').innerText = "❤".repeat(balls[1].hp) + "♡".repeat(5 - balls[1].hp);
+
+            document.getElementById('p1Status').classList.toggle('active', balls[0].isSpiked);
+            document.getElementById('p2Status').classList.toggle('active', balls[1].isSpiked);
+
+            if (balls[0].hp <= 0 || balls[1].hp <= 0) {
+                gameRunning = false;
+                const winner = balls[0].hp <= 0 && balls[1].hp <= 0 ? "DRAW" :
+                    balls[0].hp <= 0 ? CONFIG.player2.name + " WINS" :
+                        CONFIG.player1.name + " WINS";
+                winnerText.innerText = winner;
+                gameOverScreen.classList.remove('hidden');
+            }
+        }
+
+        function loop() {
+            if (!gameRunning) return;
+
+            drawArena();
+            spawnLogic();
+            items.forEach(i => i.draw());
+            balls.forEach(b => { b.update(); b.draw(); });
+
+            checkCollisions();
+            updateUI();
+
+            frameCount++;
+            requestAnimationFrame(loop);
+        }
+
+    </script>
+</body>
+
+</html>
